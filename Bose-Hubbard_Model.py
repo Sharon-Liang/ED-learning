@@ -1,6 +1,9 @@
 # This is a practice of using ED to solve Bose-Hubbard Model
 # Follow the instruction of arXiv: 1102.4006v1
 import numpy as np
+import scipy as sp
+from scipy.sparse.linalg import eigsh
+import matplotlib.pyplot as plt
 
 
 def fac(N):
@@ -45,7 +48,6 @@ def basis_vecs(M,N):
         for n in range(k+2,M):
             vecs[i+1,n] = 0
     return vecs
-
 
 '''Hashing technique : define a unique tag for each basis vector.
 
@@ -125,7 +127,7 @@ def bose_hubbard(M,N,J,U):
     for i in range(D):
         for j in range(M-1): # only define the forward jumping
             if basis[i,j] > 0 :
-                vec = basis[i,:]
+                vec = basis[i,:].copy()
                 vec[j+1] += 1
                 vec[j] -= 1
                 tag = tag_fun(vec,M) # tag for the newly generated vector
@@ -136,4 +138,54 @@ def bose_hubbard(M,N,J,U):
     H_kin = H_kin + np.conj(H_kin).T
     H = H_int + H_kin
     return H
-    
+
+
+
+'''Some physical quantities'''
+# Single-particle Density Matrix
+def density_matrix(H,basis):
+    (D,M) = basis.shape
+    T = np.zeros(D)
+    for i in range(D):
+        T[i] = tag_fun(basis[i,:],M)
+    Tsorted = sorted(T)
+    ind = np.argsort(T)  # Tsorted[i] = T[ind[i]]
+
+    Evals, Evecs = sp.sparse.linalg.eigsh(H,k=1)
+    rho = np.zeros([M,M])
+
+    for i in range(M):
+        for n in range(D):
+            rho[i,i] += basis[n,i] * np.conj(Evecs[n]) * Evecs[n]
+
+    for i in range(M):
+        for j in range(M):
+            if i != j:
+                for n in range(D):
+                    if basis[n,j] > 0:
+                        vec = basis[n,:].copy()
+                        vec[i] += 1
+                        vec[j] -= 1
+                        tag = tag_fun(vec, len(vec))
+                        for k in range(D):
+                            if tag == Tsorted[k]:
+                                rho[i,j] = np.sqrt((basis[n,i]+1) * basis[n,j]) *\
+                                            np.conj(Evecs[ind[k]]) * Evecs[j]
+    return rho
+
+J = 1
+M = N = 5
+fc = np.zeros(100)
+i=0
+a = np.linspace(0,20,100)
+for u in a:
+    U = u
+    H = bose_hubbard(M,N,J,U)
+    basis = basis_vecs(M,N)
+    rho = density_matrix(H,basis)
+    eval = np.linalg.eigvals(rho)
+    fc[i] = eval[0]/N
+    i += 1
+
+plt.plot(a,fc)
+plt.show()
