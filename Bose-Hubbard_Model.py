@@ -151,7 +151,7 @@ def density_matrix(H,basis):
     Tsorted = sorted(T)
     ind = np.argsort(T)  # Tsorted[i] = T[ind[i]]
 
-    Evals, Evecs = sp.sparse.linalg.eigsh(H,k=1)
+    Evals, Evecs = sp.sparse.linalg.eigsh(H,k=1,which = 'SA')
     rho = np.zeros([M,M])
 
     for i in range(M):
@@ -173,19 +173,19 @@ def density_matrix(H,basis):
                                             np.conj(Evecs[ind[k]]) * Evecs[j]
     return rho
 
+M = N = 7
 J = 1
-M = N = 5
+u = np.linspace(0,2,100)
 fc = np.zeros(100)
-i=0
-a = np.linspace(0,20,100)
-for u in a:
-    U = u
+
+i = 0
+for U in u:
     H = bose_hubbard(M,N,J,U)
     basis = basis_vecs(M,N)
     rho = density_matrix(H,basis)
     eval = np.linalg.eigvals(rho)
-    fc[i] = eval[0]/N
+    fc[i] = eval[0] / N
     i += 1
 
-plt.plot(a,fc)
+plt.plot(u,fc)
 plt.show()
