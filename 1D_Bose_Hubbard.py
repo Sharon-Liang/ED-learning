@@ -1,4 +1,4 @@
-# This is a practice of using ED to solve Bose-Hubbard Model
+# This is a practice of using ED to solve 1D Bose-Hubbard Model
 # Follow the instruction of arXiv: 1102.4006v1
 import numpy as np
 import scipy as sp
@@ -85,7 +85,7 @@ def primes(M):
         num += 1
     return primes
 
-def tag_fun(vec, M):
+def find_tag(vec, M):
     '''calculate the tag of each vectors'''
     prime = primes(M)
     tag = 0
@@ -105,13 +105,13 @@ def tag_fun(vec, M):
         H_int : interaction part
             U/2 ∑_i ni (ni -1)
             U : Onsite interaction'''
-def bose_hubbard(M,N,J,U):
+def bose_hubbard(M, N, J, U, periodic = False):
     D = space_dim(M,N)
     basis = basis_vecs(M,N)
 
     T = np.zeros(D)
     for i in range(D):
-        T[i] = tag_fun(basis[i,:],M)
+        T[i] = find_tag(basis[i,:],M)
     Tsorted = sorted(T)
     ind = np.argsort(T)  # Tsorted[i] = T[ind[i]]
 
@@ -125,16 +125,28 @@ def bose_hubbard(M,N,J,U):
 
     # H_kin: off-diagonal terms
     for i in range(D):
-        for j in range(M-1): # only define the forward jumping
+        if periodic:
+            limit = M
+        else:
+            limit = M-1
+        for j in range(limit): # only define the forward jumping
             if basis[i,j] > 0 :
                 vec = basis[i,:].copy()
-                vec[j+1] += 1
+                if j+1 == M:
+                    vec[0] += 1
+                else:
+                    vec[j+1] += 1
                 vec[j] -= 1
-                tag = tag_fun(vec,M) # tag for the newly generated vector
+                tag = find_tag(vec,M) # tag for the newly generated vector
                 # Find the position of the new vector
                 for k in range(M):
                     if tag == Tsorted[k]:
-                        H_kin[ind[k],i] += -J * np.sqrt(basis[i,j] * (basis[i,j+1] + 1))
+                        if j+1 == M:
+                            next = 0
+                        else:
+                            next = j + 1
+                        H_kin[ind[k],i] += -J * np.sqrt(basis[i,j] * (basis[i,next] + 1))
+
     H_kin = H_kin + np.conj(H_kin).T
     H = H_int + H_kin
     return H
@@ -147,11 +159,12 @@ def density_matrix(H,basis):
     (D,M) = basis.shape
     T = np.zeros(D)
     for i in range(D):
-        T[i] = tag_fun(basis[i,:],M)
+        T[i] = find_tag(basis[i,:],M)
     Tsorted = sorted(T)
     ind = np.argsort(T)  # Tsorted[i] = T[ind[i]]
 
-    Evals, Evecs = sp.sparse.linalg.eigsh(H,k=1,which = 'SA')
+    Evals, Evecs = sp.sparse.linalg.eigsh(H, k=1, which = 'SA')
+
     rho = np.zeros([M,M])
 
     for i in range(M):
@@ -166,21 +179,30 @@ def density_matrix(H,basis):
                         vec = basis[n,:].copy()
                         vec[i] += 1
                         vec[j] -= 1
-                        tag = tag_fun(vec, len(vec))
+                        tag = find_tag(vec, len(vec))
                         for k in range(D):
                             if tag == Tsorted[k]:
                                 rho[i,j] = np.sqrt((basis[n,i]+1) * basis[n,j]) *\
                                             np.conj(Evecs[ind[k]]) * Evecs[j]
     return rho
 
-M = N = 7
+M = 3
+N = 2
 J = 1
-u = np.linspace(0,2,100)
+u = np.linspace(0,20,100)
 fc = np.zeros(100)
 
+H = bose_hubbard(M,N,J,0,periodic = True)
+Evals, Evecs = sp.sparse.linalg.eigsh(H, k=1, which = 'SA')
+basis = basis_vecs(M,N)
+print(basis)
+print(Evals)
+print(Evecs)
+
+'''
 i = 0
 for U in u:
-    H = bose_hubbard(M,N,J,U)
+    H = bose_hubbard(M,N,J,U,periodic = True)
     basis = basis_vecs(M,N)
     rho = density_matrix(H,basis)
     eval = np.linalg.eigvals(rho)
@@ -189,3 +211,4 @@ for U in u:
 
 plt.plot(u,fc)
 plt.show()
+'''
