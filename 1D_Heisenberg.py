@@ -1,4 +1,4 @@
-# This is a practice of using ED to solve 1D Heisenberg Model
+# This is a practice of using ED to solve 1D S=1/2 Heisenberg Model
 # Follow the instruction of arXiv: 1102.4006v1
 import numpy as np
 import scipy as sp
@@ -34,3 +34,53 @@ def find_tag(vec, M):
     for i in range(M):
         tag += np.sqrt(prime[i]) * vec[i]
     return tag
+
+'''Heisenberg model: H = J ∑_<ij> si ⋅ sj
+   Number of sites: M
+   Hilbert space dimension: 2^N
+   basis : eigen-states of Sz
+           spin up --> 1 , spin down --> 0
+    '''
+
+'''Rewrite Hamiltonian to two parts:
+   Diagonal: Hz = Jz S^z S^z
+   Off-diagonal: Hxy = Jxy/2 (S^+ S^-  +  S^- S^+)
+                 S+ = S^x  + i S^y
+                 S- = S^x  - i S^y
+   '''
+
+
+def basis_vecs(N):
+    '''Build basis vectors'''
+    dim = pow(2,N)
+    basis = np.zeros([dim,N])
+    for i in range(dim-1):
+        #determin the position of the first 0, start from the lowest
+        for k in range(N-1,-1,-1):
+            if basis[i,k] == 0:
+                break
+        #write the next basis
+        for j in range(k):
+            basis[i+1,j] == basis[i,j]
+        basis[i+1,k] = 1
+        for j in range(k+1,N,1):
+            basis[i+1,k] = 0
+    return basis
+
+basis = basis_vecs(3)
+print(basis)
+
+def heisenberg(N):
+    '''Build Heisenberg model Hamiltonian'''
+    return
+
+
+'''Add constrain: total Sz = S
+'''
+def basis_conserve_sz(N):
+    '''Build basis of total sz = S'''
+    return
+
+def heisenberg_conserve_sz(N):
+    '''Build Hamiltonian with conserved Sz = S'''
+    return
