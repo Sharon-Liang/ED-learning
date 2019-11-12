@@ -4,6 +4,7 @@ import numpy as np
 import scipy as sp
 from scipy.sparse.linalg import eigsh
 import matplotlib.pyplot as plt
+from scipy.special import comb, perm #Combination and Permulation operation
 
 '''Tag functions'''
 def is_prime(num):
@@ -123,26 +124,67 @@ def heisenberg(N, Jz, Jxy, h, periodic = False, hermition = False):
     return H
 
 '''Add constrain: total Sz = S
+   For a length = N(N=even) chain, there are N/2 spin-up.
 '''
-def basis_conserve_sz(N):
-    '''Build basis of total sz = S'''
+
+'''The idea is:(conserved particle number problem)
+   1. Separate the chain to two parts, one part has M spin-up,
+      the other has N/2-M spin-up.
+   2. Determin two part separately. We only have to figure out the spin
+      congigurations of M particles in N/2 sites(M <= N/2)
+   '''
+def half_chain(N,M):
+    '''M spin-up on N sites: M<=N'''
+    dim = int(comb(N,M))
+    vecs = np.zeros([dim,N],int)
+    if M == 0:
+        return vecs
+    elif 0 < M <= N:
+        for i in range(M):
+            vecs[0,i] = 1
+        for j in range(dim-1):
+            k = N-2
+            for i in range(N-2,-1,-1):
+                if vecs[j,i]==0:
+                    k -= 1
+                    if k >= 0:
+                        continue
+                    else:
+                        print('Error: zero vector!')
+                elif vecs[j,i] != 0:
+                    if vecs[j,i+1]!=0:
+                        k -=1
+                    else:
+                        break
+
+            for i in range(k):
+                vecs[j+1,i] = vecs[j,i]
+
+            vecs[j+1,k] = vecs[j,k] - 1
+            vecs[j+1,k+1] = vecs[j,k+1] + 1
+
+            sum = 0
+            for i in range(k+2):
+                if vecs[j,i] == 1:
+                    sum += 1
+            sum = M - sum
+            if sum > 0:
+                for i in range(k+2,k+2+sum):
+                    vecs[j+1,i] = 1
+    return vecs
+
+vec = half_chain(6,4)
+print(vec)
+
+
+def basis_conserve_sz(N,M):
+    '''Build basis of total Sz = M/2
+       M: numer of spin-up, if M <= 1/2'''
+    dim = basis_dim(N,M)
+
+
     return
 
 def heisenberg_conserve_sz(N):
     '''Build Hamiltonian with conserved Sz = S'''
     return
-
-
-'''Solve the ground state'''
-H = heisenberg(4,-1,-1,0,periodic = True)
-Evals, Evecs = sp.sparse.linalg.eigsh(H, k=16, which = 'SA')
-print(Evals[0])
-#print the tag of the most probable state
-print(Evecs[:,0])
-a = Evecs[:,0] * Evecs[:,0]
-print(a)
-print(np.where(a==np.max(a)))
-
-
-
-'''Energy spectrum in k space: Fourier transformation'''
