@@ -2,23 +2,78 @@
 # Follow the instruction of arXiv: 1102.4006v1
 import numpy as np
 import scipy as sp
-from scipy.sparse.linalg import eigsh
 import matplotlib.pyplot as plt
 
+from scipy.sparse.linalg import eigsh
 
+#-------------------------------------------------------------------------------
+'''Hashing technique : define a unique tag for each basis vector.
+
+    Instead of calculating the matrix elements one by one, we apply the
+    Hamiltonian on each basis vector and indentify the tag of the outcoming
+    vector, thus we have the value and position of all non-zero elements.
+
+    Tag function: use the incommensurability of prime numbers to make sure
+    the tags are unique. Several often used tag functions are:
+            T(v) = ∑_{i=1}^M ln(pi) A_{vi}
+            T(v) = ∑_{i=1}^M √pi A_{vi}
+    where pi is the i-th prime number and A_{vi} is the i-th elements of basis
+    vector |v>.
+    '''
+
+'''Here we use the tag function: T(v) = ∑_{i=1}^M √pi A_{vi}'''
+def is_prime(num):
+    factor = 2
+    while(factor * factor <= num):
+        if num % factor == 0:
+            return False
+        factor += 1
+    return True
+
+def primes(M):
+    '''return a list of the first M prime numbers'''
+    count = 0
+    num = 2
+    primes = np.zeros(M)
+
+    while (count < M):
+        if is_prime(num):
+            primes[count] = num
+            count += 1
+        num += 1
+    return primes
+
+def find_tag(vec):
+    '''calculate the tag of each vectors'''
+    M = len(vec)
+    prime = primes(M)
+    tag = 0
+    for i in range(M):
+        tag += np.sqrt(prime[i]) * vec[i]
+    return tag
+
+#-------------------------------------------------------------------------------
+'''Setup system size and generate basis vectors:
+       M: number of sites
+       N: number of bosons
+       D = (M+N-1)!/ [N!(M-1)!] : Dimension of Hilbert space'''
+
+'''Setup Hamiltonian matrix:
+        H_kin : kinetic energy part
+            - J ∑_<ij> ai+ aj + h.c.
+            J : hopping
+        H_int : interaction part
+            U/2 ∑_i ni (ni -1)
+            U : Onsite interaction'''
 def fac(N):
     return np.math.factorial(N)
 
-'''Setups:
-   M: number of sites
-   N: number of bosons
-   D = (M+N-1)!/ [N!(M-1)!] : Dimension of Hilbert space
-   '''
 def space_dim(M,N):
+'''Hilbert space dimension'''
     return int(fac(M+N-1)/(fac(N) * fac(M-1)))
 
-'''Basis vectors generation'''
 def basis_vecs(M,N):
+'''Basis vectors generation'''
     D = int(fac(M+N-1)/(fac(N) * fac(M-1)))
     vecs = np.zeros([D,M])
     vecs[0,0] = N
@@ -49,62 +104,6 @@ def basis_vecs(M,N):
             vecs[i+1,n] = 0
     return vecs
 
-'''Hashing technique : define a unique tag for each basis vector.
-
-    Instead of calculating the matrix elements one by one, we apply the
-    Hamiltonian on each basis vector and indentify the tag of the outcoming
-    vector, thus we have the value and position of all non-zero elements.
-
-    Tag function: use the incommensurability of prime numbers to make sure
-    the tags are unique. Several often used tag functions are:
-            T(v) = ∑_{i=1}^M ln(pi) A_{vi}
-            T(v) = ∑_{i=1}^M √pi A_{vi}
-    where pi is the i-th prime number and A_{vi} is the i-th elements of basis
-    vector |v>.
-    '''
-
-# Here we use the tag function: T(v) = ∑_{i=1}^M √pi A_{vi}
-def is_prime(num):
-    factor = 2
-    while(factor * factor <= num):
-        if num % factor == 0:
-            return False
-        factor += 1
-    return True
-
-def primes(M):
-    '''return a list of the first M prime numbers'''
-    count = 0
-    num = 2
-    primes = np.zeros(M)
-
-    while (count < M):
-        if is_prime(num):
-            primes[count] = num
-            count += 1
-        num += 1
-    return primes
-
-def find_tag(vec, M):
-    '''calculate the tag of each vectors'''
-    prime = primes(M)
-    tag = 0
-    for i in range(M):
-        tag += np.sqrt(prime[i]) * vec[i]
-    return tag
-
-'''Setup system size and generate basis vectors:
-       M: number of sites
-       N: number of bosons
-       D = (M+N-1)!/ [N!(M-1)!] : Dimension of Hilbert space'''
-
-'''Setup Hamiltonian matrix:
-        H_kin : kinetic energy part
-            - J ∑_<ij> ai+ aj + h.c.
-            J : hopping
-        H_int : interaction part
-            U/2 ∑_i ni (ni -1)
-            U : Onsite interaction'''
 def bose_hubbard(M, N, J, U, periodic = False):
     D = space_dim(M,N)
     basis = basis_vecs(M,N)
@@ -132,30 +131,24 @@ def bose_hubbard(M, N, J, U, periodic = False):
         for j in range(limit): # only define the forward jumping
             if basis[i,j] > 0 :
                 vec = basis[i,:].copy()
-                if j+1 == M:
-                    vec[0] += 1
-                else:
-                    vec[j+1] += 1
+                next = (j+1) % M
+                vec[next] += 1
                 vec[j] -= 1
-                tag = find_tag(vec,M) # tag for the newly generated vector
+                tag = find_tag(vec) # tag for the newly generated vector
                 # Find the position of the new vector
                 for k in range(M):
                     if tag == Tsorted[k]:
-                        if j+1 == M:
-                            next = 0
-                        else:
-                            next = j + 1
+                        next = (j+1) % M
                         H_kin[ind[k],i] += -J * np.sqrt(basis[i,j] * (basis[i,next] + 1))
 
     H_kin = H_kin + np.conj(H_kin).T
     H = H_int + H_kin
     return H
 
-
-
+#-------------------------------------------------------------------------------
 '''Some physical quantities'''
-# Single-particle Density Matrix
 def density_matrix(H,basis):
+    '''Single particle density matrix'''
     (D,M) = basis.shape
     T = np.zeros(D)
     for i in range(D):
