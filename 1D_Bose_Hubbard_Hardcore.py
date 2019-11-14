@@ -2,10 +2,12 @@
 # We use hardcore boson here
 import numpy as np
 import scipy as sp
-from scipy.sparse.linalg import eigsh
 import matplotlib.pyplot as plt
 
-'''Tag functions'''    
+from scipy.sparse.linalg import eigsh
+
+#-------------------------------------------------------------------------------
+'''Tag functions'''
 def is_prime(num):
     factor = 2
     while(factor * factor <= num):
@@ -27,10 +29,13 @@ def primes(M):
         num += 1
     return primes
 
-def find_tag(vec, M):
+def find_tag(vec):
     '''calculate the tag of each vectors'''
+    M = len(vec)
     prime = primes(M)
     tag = 0
     for i in range(M):
         tag += np.sqrt(prime[i]) * vec[i]
     return tag
+
+#-------------------------------------------------------------------------------
