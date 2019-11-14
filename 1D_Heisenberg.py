@@ -45,6 +45,36 @@ def countBits(x):
 
 #-------------------------------------------------------------------------------
 '''Tag functions'''
+def is_prime(num):
+    factor = 2
+    while(factor * factor <= num):
+        if num % factor == 0:
+            return False
+        factor += 1
+    return True
+
+def primes(M):
+    '''return a list of the first M prime numbers'''
+    count = 0
+    num = 2
+    primes = np.zeros(M)
+
+    while (count < M):
+        if is_prime(num):
+            primes[count] = num
+            count += 1
+        num += 1
+    return primes
+
+def find_tag(vec):
+    '''calculate the tag of each vectors'''
+    M = len(vec)
+    prime = primes(M)
+    tag = 0
+    for i in range(M):
+        tag += np.sqrt(prime[i]) * vec[i]
+    return tag
+
 '''Note: We can use the corresponding decimal number of the basis states as
          its tag.'''
 def decimal(vec):
@@ -113,6 +143,7 @@ def heisenberg(N, Jz, Jxy, h, periodic = False):
                 new = basis[i,:].copy()
                 for k in range(N):
                     new[k] = vec[k]^new[k]
+
                 Hxy[i,decimal(new)] += - Jxy / 2
 
             Hh[i,i] += h * (basis[i,j] - 1/2)
@@ -171,48 +202,53 @@ def basis_sz_conserve(N,M):
                     vecs[j+1,i] = 1
     return vecs
 
-
-
-def heisenberg_sz_conserve(N,Sz):
+def heisenberg_sz_conserve(N, Jz, Jxy, Sz, periodic = False):
     '''Build Hamiltonian with conserved Sz = S'''
     M = N/2 + Sz
     if M%1 != 0:
-        print('Error: No such configuration')
+        return print('Error: No such configuration')
     else:
         M = int(M)
     basis = basis_sz_conserve(N,M)
     dim = len(basis)
-    ''''''
-        if periodic:
-            limit = N
-        else:
-            limit = N-1
 
-        Hz = np.zeros([dim,dim]) # Diagonal: Hz = Jz S^z S^z
-        Hxy = np.zeros([dim,dim]) #Off-diagonal: Hxy = Jxy/2 (S^+ S^-  +  S^- S^+)
-        Hh = np.zeros([dim,dim]) # add small h to break degeneracy
+    # Define a tag for every state
+    T = np.zeros(dim)
+    for i in range(dim):
+        T[i] = find_tag(basis[i,:])
+    Tsorted = sorted(T)
+    ind = np.argsort(T)  # Tsorted[i] = T[ind[i]]
 
-        for i in range(dim):
-            for j in range(limit):
-                next = (j+1) % N
-                Hz[i,i] += - Jz * (basis[i,j] - 1/2) * (basis[i,next] - 1/2)
+    if periodic:
+        limit = N
+    else:
+        limit = N-1
 
-                vec = np.zeros(N,int)
-                vec[j] = 1
-                vec[next] = 1
-                if basis[i,j]!= basis[i,next]:
-                    new = basis[i,:].copy()
-                    for k in range(N):
-                        new[k] = vec[k]^new[k]
-                    Hxy[i,decimal(new)] += - Jxy / 2
+    Hz = np.zeros([dim,dim]) # Diagonal: Hz = Jz S^z S^z
+    Hxy = np.zeros([dim,dim]) #Off-diagonal: Hxy = Jxy/2 (S^+ S^-  +  S^- S^+)
 
-                Hh[i,i] += h * (basis[i,j] - 1/2)
+    for i in range(dim):
+        for j in range(limit):
+            next = (j+1) % N
+            Hz[i,i] += - Jz * (basis[i,j] - 1/2) * (basis[i,next] - 1/2)
 
-        H = Hz + Hxy + Hh
-
-    return
+            vec = np.zeros(N,int)
+            vec[j] = 1
+            vec[next] = 1
+            if basis[i,j]!= basis[i,next]:
+                new = basis[i,:].copy()
+                for k in range(N):
+                    new[k] = vec[k]^new[k]
+                tag = find_tag(new) # tag for the newly generated vector
+                # Find the position of the new vector
+                for k in range(N):
+                    if tag == Tsorted[k]:
+                            Hxy[i,ind[k]] += - Jxy / 2
+    H = Hz + Hxy
+    return H
 
 #-------------------------------------------------------------------------------
-'''Program test'''
-H = heisenberg(2, 1, 1, 0, periodic = False)
-print(H)
+'''Eigenvalue and Eigenvectors'''
+H = heisenberg(4, -1, -1, 0, periodic = True)
+ev, evec = np.linalg.eigh(H)
+print(ev)
